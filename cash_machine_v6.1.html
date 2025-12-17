@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>银河战舰 · 基金经理配置台 V6.1</title>
+    <style>
+        :root { --primary: #108ee9; --accent: #ff5722; --bg: #f0f2f5; --card-bg: #fff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #333; margin: 0; padding: 20px; display:flex; justify-content:center; }
+        .container { width: 100%; max-width: 600px; background: var(--card-bg); border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); padding: 24px; }
+        
+        h1 { text-align: center; color: var(--primary); margin: 0 0 20px 0; font-size: 22px; border-bottom: 2px solid #e8e8e8; padding-bottom: 15px; }
+        
+        .grid-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .col { flex: 1; }
+        
+        label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 15px; box-sizing: border-box; background: #fafafa; transition:0.3s; }
+        input:focus, select:focus { border-color: var(--primary); background: #fff; outline: none; }
+        
+        .section-header { font-size: 14px; font-weight: bold; color: #108ee9; margin: 25px 0 10px 0; display:flex; align-items:center; }
+        .section-header::before { content:''; display:inline-block; width:4px; height:14px; background:#108ee9; margin-right:8px; border-radius:2px; }
+
+        .btn { width: 100%; padding: 14px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 10px rgba(16, 142, 233, 0.3); }
+        .btn:hover { background: #0e77ca; }
+
+        .result-area { display: none; margin-top: 25px; animation: slideUp 0.4s ease; }
+        @keyframes slideUp { from { opacity:0; transform:translateY(15px); } to { opacity:1; transform:translateY(0); } }
+
+        .card { background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 16px; margin-bottom: 16px; position: relative; overflow: hidden; }
+        .card::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+        .card-blue::after { background: var(--primary); }
+        .card-red::after { background: var(--accent); }
+
+        .data-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 14px; }
+        .data-val { font-weight: 700; color: #333; }
+        .big-num { font-size: 18px; color: var(--accent); }
+        .profit-num { font-size: 20px; color: #27a646; }
+        
+        .auto-tag { font-size: 12px; color: #27a646; background: #e6f7ff; padding: 2px 5px; border-radius: 4px; margin-left: 5px; display:none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🧭 基金经理配置台 V6.1</h1>
+
+    <!-- 资金与标的 -->
+    <div class="section-header">第一步：基础数据输入</div>
+    <div class="grid-row">
+        <div class="col">
+            <label>投入总资金 (元)</label>
+            <input type="number" id="capital" step="1000" placeholder="如 50000" onchange="calculate()">
+        </div>
+        <div class="col">
+            <label>当前价格 (元)</label>
+            <input type="number" id="price" step="0.001" placeholder="如 1.000" onchange="calculate(true)">
+        </div>
+    </div>
+
+    <!-- 估值与波动 -->
+    <div class="grid-row">
+        <div class="col">
+            <label>估值百分位 (%) <span style="font-weight:normal;color:#999;font-size:11px">决定底仓</span></label>
+            <input type="number" id="percentile" placeholder="0-100" value="50" onchange="calculate()">
+        </div>
+        <div class="col">
+            <label>近一年波动 (低点/高点)</label>
+            <div style="display:flex; gap:5px;">
+                <input type="number" id="lowYear" step="0.1" placeholder="最低" onchange="calculate(true)">
+                <input type="number" id="highYear" step="0.1" placeholder="最高" onchange="calculate(true)">
+            </div>
+        </div>
+    </div>
+
+    <!-- 核心决策参数 -->
+    <div class="section-header">第二步：基金经理决策</div>
+    <div class="grid-row">
+        <div class="col">
+            <label>交易风格偏好</label>
+            <select id="style" onchange="calculate(true)">
+                <option value="high_freq">⚡ 高频刷单 (步长极小)</option>
+                <option value="balanced" selected>⚖️ 稳健波段 (步长适中)</option>
+                <option value="trend">🌊 大浪淘沙 (步长很大)</option>
+            </select>
+        </div>
+        <div class="col">
+            <label>
+                资金切割份数 (格子)
+                <span id="grid-auto-tag" class="auto-tag">已自动计算</span>
+            </label>
+            <input type="number" id="gridCount" placeholder="系统将自动计算" onchange="calculate(false)">
+        </div>
+    </div>
+
+    <button class="btn" onclick="calculate(false)">生成精准策略</button>
+
+    <!-- 结果输出 -->
+    <div class="result-area" id="result">
+        
+        <!-- 仓位卡片 -->
+        <div class="card card-blue">
+            <div class="data-row" style="border-bottom:1px dashed #eee; padding-bottom:8px; margin-bottom:10px;">
+                <span style="color:#108ee9; font-weight:bold;">🟢 智能建仓方案</span>
+                <span id="pos-desc" style="font-size:12px; color:#999">--</span>
+            </div>
+            <div class="data-row">
+                <span>手动买入底仓</span>
+                <span class="data-val big-num" style="color:#333" id="res-base-shares">--</span>
+            </div>
+            <div class="data-row">
+                <span>消耗资金</span>
+                <span class="data-val" id="res-base-cost">--</span>
+            </div>
+            <div class="data-row">
+                <span>保留防御现金</span>
+                <span class="data-val" style="color:#27a646" id="res-cash">--</span>
+            </div>
+        </div>
+
+        <!-- 网格参数卡片 -->
+        <div class="card card-red">
+            <div class="data-row" style="border-bottom:1px dashed #eee; padding-bottom:8px; margin-bottom:10px;">
+                <span style="color:#ff5722; font-weight:bold;">🔴 银河条件单填空</span>
+                <span style="font-size:12px; color:#999">V6.1 动态覆盖算法</span>
+            </div>
+            
+            <div class="grid-row" style="margin-bottom:0">
+                <div class="col">
+                    <span style="font-size:12px; color:#666; display:block">区间下限</span>
+                    <span class="data-val" id="res-low">--</span>
+                </div>
+                <div class="col" style="text-align:center">
+                    <span style="font-size:12px; color:#666; display:block">网格步长</span>
+                    <span class="data-val big-num" id="res-step">--</span>
+                </div>
+                <div class="col" style="text-align:right">
+                    <span style="font-size:12px; color:#666; display:block">区间上限</span>
+                    <span class="data-val" id="res-high">--</span>
+                </div>
+            </div>
+
+            <div style="background:#fff7e6; padding:12px; border-radius:6px; margin-top:10px; border:1px solid #ffe7ba;">
+                <div class="data-row">
+                    <span>每笔委托数量</span>
+                    <span class="data-val" style="color:#d48806; font-size:18px" id="res-qty">--</span>
+                </div>
+                <div class="data-row" style="margin-bottom:0">
+                    <span>单网格预期净利</span>
+                    <span class="data-val profit-num" id="res-profit">--</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function calculate(recalcGrid = false) {
+        // 1. 获取输入
+        const capital = parseFloat(document.getElementById('capital').value);
+        const price = parseFloat(document.getElementById('price').value);
+        const percentile = parseFloat(document.getElementById('percentile').value);
+        const lowYear = parseFloat(document.getElementById('lowYear').value);
+        const highYear = parseFloat(document.getElementById('highYear').value);
+        const style = document.getElementById('style').value;
+        
+        let gridCountInput = document.getElementById('gridCount');
+        let gridCount = parseInt(gridCountInput.value);
+
+        if (!capital || !price || !lowYear || !highYear) return;
+
+        // ----------------------------------------------------
+        // 核心优化：自动计算默认格子数 (Safety Coverage Logic)
+        // ----------------------------------------------------
+        // 只有当参数变动(recalcGrid=true) 或者 格子数为空时，才触发自动计算
+        if (recalcGrid || !gridCount) {
+            
+            // 算法：计算步长
+            const volatility = (highYear - lowYear) / lowYear;
+            let tempStep = 1.0;
+            if (volatility < 0.2) tempStep = 0.5;
+            else if (volatility < 0.4) tempStep = 0.8;
+            else tempStep = 1.5;
+            
+            // 风格修正步长
+            if (style === 'high_freq') tempStep = Math.max(0.3, tempStep * 0.6);
+            if (style === 'trend') tempStep = tempStep * 1.5;
+
+            // 算法：格子数 = (现价 - 安全底) / (现价 * 步长)
+            // 安全底设定为：近一年最低价的 95% (防击穿)
+            const safeBottom = lowYear * 0.95;
+            const distance = price - safeBottom;
+
+            if (distance <= 0) {
+                // 如果现价已经跌穿了年线低点 -> 极度安全，格子少一点，资金集中
+                gridCount = 15; 
+            } else {
+                // 计算需要多少格才能覆盖到安全底
+                let requiredGrids = Math.ceil(distance / (price * (tempStep/100)));
+                // 加上 20% 的安全冗余
+                gridCount = Math.ceil(requiredGrids * 1.2);
+            }
+
+            // 边界限制：太少不行(至少12格)，太多不行(银河一般限制50-100，资金太散没意义)
+            gridCount = Math.max(12, Math.min(60, gridCount));
+
+            // 更新UI
+            gridCountInput.value = gridCount;
+            document.getElementById('grid-auto-tag').style.display = 'inline-block';
+            document.getElementById('grid-auto-tag').innerText = `已按安全底 ${safeBottom.toFixed(3)} 自动优化`;
+        }
+        // ----------------------------------------------------
+
+        // 2. 重新获取最新的格子数 (允许用户手动改)
+        gridCount = parseInt(gridCountInput.value);
+
+        // 3. 智能计算步长 (同上逻辑，再算一遍确认为准)
+        const volatility = (highYear - lowYear) / lowYear;
+        let step = 1.0;
+        if (volatility < 0.2) step = 0.5;
+        else if (volatility < 0.4) step = 0.8;
+        else step = 1.5;
+        if (style === 'high_freq') step = Math.max(0.3, step * 0.6);
+        if (style === 'trend') step = step * 1.5;
+
+        // 4. 智能计算底仓比例 (根据估值)
+        let baseRatio = 0.3;
+        let posDesc = "估值适中";
+        if (percentile < 20) { baseRatio = 0.45; posDesc = "💎 极度低估，重仓潜伏"; }
+        else if (percentile > 60) { baseRatio = 0.15; posDesc = "⚠️ 估值偏高，轻仓防御"; }
+        else if (percentile > 80) { baseRatio = 0; posDesc = "🔥 极度高估，建议空仓"; }
+
+        // 5. 智能区间锚定
+        // 下限必须覆盖到：(现价 - 格子数 * 步长) 
+        // 这样保证网格跑满格子数时，刚好到底
+        let calculatedLow = price * (1 - (gridCount * step / 100));
+        // 但也不能太离谱，和历史低点取个平衡
+        let gridLow = Math.min(calculatedLow, lowYear).toFixed(3);
+        
+        // 上限：根据步长往上推
+        let gridHigh = (price * (1 + (gridCount * step / 100))).toFixed(3);
+        // 如果上方空间太大，限制在年高点附近，避免无效挂单
+        gridHigh = Math.max(gridHigh, highYear).toFixed(3); // 可选逻辑
+
+        // 6. 资金计算
+        const baseShares = Math.floor((capital * baseRatio) / price / 100) * 100;
+        const baseCost = baseShares * price;
+        const keepCash = capital - baseCost;
+
+        // 单笔委托
+        let perGridShares = Math.floor((keepCash / gridCount) / price / 100) * 100;
+        if (perGridShares < 100) perGridShares = 100;
+        
+        const perGridAmount = perGridShares * price;
+
+        // 7. 净利计算
+        const buyFee = Math.max(0.1, perGridAmount * 0.00005);
+        const sellAmount = perGridAmount * (1 + step/100);
+        const sellFee = Math.max(0.1, sellAmount * 0.00005);
+        const grossProfit = perGridAmount * (step/100);
+        const netProfit = grossProfit - buyFee - sellFee;
+
+        // 8. 渲染
+        document.getElementById('result').style.display = 'block';
+        document.getElementById('pos-desc').innerText = posDesc;
+        document.getElementById('res-base-shares').innerText = baseShares + " 股";
+        document.getElementById('res-base-cost').innerText = "约 " + baseCost.toFixed(0) + " 元";
+        document.getElementById('res-cash').innerText = keepCash.toFixed(0) + " 元";
+
+        document.getElementById('res-low').innerText = gridLow;
+        document.getElementById('res-high').innerText = gridHigh;
+        document.getElementById('res-step').innerText = step.toFixed(2) + "%";
+        
+        document.getElementById('res-qty').innerText = perGridShares + " 股";
+        document.getElementById('res-profit').innerText = netProfit.toFixed(2) + " 元";
+    }
+</script>
+
+</body>
+</html>
